@@ -1,0 +1,80 @@
+# Implement a basic autoencoder using PyTorch or TensorFlow.
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torchvision import datasets, transforms
+from torch.utils.data import DataLoader
+import matplotlib.pyplot as plt
+import numpy as np
+
+# Reproducibility for exact loss matching
+torch.manual_seed(42)
+np.random.seed(42)
+
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+batch_size = 128
+learning_rate = 0.001
+num_epochs = 10
+latent_dim = 32
+
+transform = transforms.Compose([transforms.ToTensor(),
+    transforms.Lambda(lambda x: x.view(-1))])
+train_dataset = datasets.MNIST(root='./data', train=True, transform=transform, download=True)
+train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+
+class Autoencoder(nn.Module):
+    def __init__(self):
+        super(Autoencoder, self).__init__()
+        self.encoder = nn.Sequential(
+            nn.Linear(784, 256), nn.ReLU(),
+            nn.Linear(256, 128), nn.ReLU(),
+            nn.Linear(128, latent_dim))
+        self.decoder = nn.Sequential(
+            nn.Linear(latent_dim, 128), nn.ReLU(),
+            nn.Linear(128, 256), nn.ReLU(),
+            nn.Linear(256, 784), nn.Sigmoid())
+    def forward(self, x):
+        return self.decoder(self.encoder(x))
+
+model = Autoencoder().to(device)
+criterion = nn.MSELoss()
+optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+
+print("Starting training...")
+for epoch in range(num_epochs):
+    total_loss = 0
+    for data in train_loader:
+        img = data[0].to(device)
+        output = model(img)
+        loss = criterion(output, img)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        total_loss += loss.item()
+    print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {total_loss/len(train_loader):.6f}')
+print("Training completed!")
+
+# === SHOW SAMPLE IMAGES (Original vs Reconstructed) ===
+print("\nVisualizing Original vs Reconstructed Images (10 random samples)...")
+model.eval()
+with torch.no_grad():
+    test_images, _ = next(iter(train_loader))
+    test_images = test_images[:10].to(device)
+    reconstructed = model(test_images)
+
+fig, axes = plt.subplots(2, 10, figsize=(20, 4))
+for i in range(10):
+    # Original
+    orig = test_images[i].cpu().view(28, 28).numpy()
+    axes[0, i].imshow(orig, cmap='gray')
+    axes[0, i].axis('off')
+    axes[0, i].set_title("Original")
+
+    # Reconstructed
+    recon = reconstructed[i].cpu().view(28, 28).numpy()
+    axes[1, i].imshow(recon, cmap='gray')
+    axes[1, i].axis('off')
+    axes[1, i].set_title("Reconstructed")
+
+plt.tight_layout()
+plt.show()

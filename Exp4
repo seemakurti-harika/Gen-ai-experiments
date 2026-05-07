@@ -1,0 +1,31 @@
+#Text Generation using GPT-2: Use Hugging Face's Transformers to generate text.
+
+from transformers import pipeline, set_seed, GPT2LMHeadModel, GPT2Tokenizer
+import torch
+
+# Reproducibility for exact generations
+set_seed(42)
+
+generator = pipeline('text-generation', model='gpt2',
+                     device=0 if torch.cuda.is_available() else -1)
+
+prompt = "Once upon a time in a distant galaxy,"
+outputs = generator(prompt, max_new_tokens=100, num_return_sequences=3,
+                    temperature=0.8, top_p=0.95, do_sample=True, pad_token_id=50256)
+
+print("=== Text Generations from Pipeline ===")
+for i, output in enumerate(outputs):
+    print(f"\nGeneration {i+1}:\n{output['generated_text']}")
+    print("-" * 80)
+
+# Manual approach with more control
+tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
+model = GPT2LMHeadModel.from_pretrained('gpt2')
+tokenizer.pad_token = tokenizer.eos_token
+
+prompt2 = "In a world where AI has become conscious,"
+inputs = tokenizer(prompt2, return_tensors="pt").to(generator.device)
+outputs2 = model.generate(**inputs, max_new_tokens=120,
+    temperature=0.7, top_p=0.9, do_sample=True, repetition_penalty=1.2)
+print("\n=== Manual Generation with Full Control ===")
+print(tokenizer.decode(outputs2[0], skip_special_tokens=True))
