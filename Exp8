@@ -1,0 +1,41 @@
+#Diffusion Models: Run inference using a pre-trained model like Stable Diffusion to generate art.
+
+import matplotlib.pyplot as plt
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
+print("Using device:", device)
+
+# Public non-gated model (no login / no auth required)
+model_id = "runwayml/stable-diffusion-v1-5"
+pipe = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=torch.float16).to(device)
+
+print("Loading Stable Diffusion 1.5...")
+prompts = [
+    "A serene cyberpunk city at night with neon lights and flying cars, 8k cinematic",
+    "A majestic fantasy dragon perched on a mountain peak, epic atmosphere, digital art",
+    "Surreal dreamscape with floating islands and glowing waterfalls, Studio Ghibli style",
+    "Portrait of a beautiful elf warrior in enchanted forest, intricate details, fantasy art"
+]
+negative_prompt = "blurry, low quality, deformed, ugly, bad anatomy, watermark"
+
+print("Generating image 1/4...  ✓ Saved: sd_art_1.png")
+images = []
+for i, prompt in enumerate(prompts):
+    image = pipe(prompt=prompt, negative_prompt=negative_prompt,
+                 num_inference_steps=20, guidance_scale=7.5,
+                 height=512, width=512,
+                 generator=torch.Generator(device).manual_seed(42+i)).images[0]
+    image.save(f"sd_art_{i+1}.png")
+    images.append(image)
+    print(f"Generating image {i+1}/4...  ✓ Saved: sd_art_{i+1}.png")
+print("Generation complete!")
+
+# === SHOW GENERATED IMAGES ===
+print("\nDisplaying generated art images:")
+fig, axs = plt.subplots(1, 4, figsize=(20, 5))
+for i, img in enumerate(images):
+    axs[i].imshow(img)
+    axs[i].axis('off')
+    axs[i].set_title(f"Image {i+1}")
+plt.tight_layout()
+plt.show()
